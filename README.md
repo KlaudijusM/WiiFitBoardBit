@@ -122,7 +122,9 @@ exit
 ## Running WiiFitBoardBit
 
 If you had to configure XWiimote and XWiimote-bindings with the _prefix_ flag you'll need to specify [additional info](https://github.com/dvdhrm/xwiimote-bindings/issues/12#issuecomment-549531955):
+
 ```sudo LD_LIBRARY_PATH=<prefix>/lib PYTHONPATH=<prefix>/lib/python2.7/site-packages python ./xwiimote.py```
 
 Otherwise you can just launch the application with:
+
 ```python ./xwiimote.py```
