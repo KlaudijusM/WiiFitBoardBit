@@ -1,86 +1,119 @@
-# wiiweigh
-Use your Wii balance board as a scale, working with auto-reconnect on a raspberry pi 3, using bluez 5, xwiimote and some python.
+# Wii Fit Board Bit
 
-## about
-This is essentially a mashup of existing projects in a try to get a connection and data from the Wii Balance Board without having to resync (red button) on each connection with newer bluez versions. After the non-recurring syncronization you can connect the board by a single push of its button, step on the board, wait for a stable average weight and step off, the board disconnects and turns of, ready for the next connection.
+## Project goals
 
-## credits
-- irq0 for his working code using xwiimote to connect to the balance board https://github.com/irq0/wiiscale
-- Arch wiki for instructions how to enable auto-reconnect on the Wii controllers using bluez 5+ and bluetoothctl https://wiki.archlinux.org/index.php/XWiimote
-- bluez example/test files in https://git.kernel.org/cgit/bluetooth/bluez.git/tree/test, nominally test-adapter, test-device and bluezutils.py
-- libs: https://github.com/dvdhrm/xwiimote and https://github.com/dvdhrm/xwiimote-bindings
+This project aims to utilize the [Wii Balance board](https://en.wikipedia.org/wiki/Wii_Balance_Board) as a smart scale to measure weight and log it on a FitBit account. This software is intended to be used on the Raspberry Pi 4 (but can be used on other versions) to track weight from day to day.
 
-## main requirements
+## Previous work
 
-- hid_wiimote kernel module with xwiimote and xwiimote-bindings
-- python-dbus
-- bluez 5
+Quite a few tutorials exist for tracking weight using the Wii Balance board and a Raspberry pi. While the most popular tutorial by [Greg Nichols](https://www.zdnet.com/article/diy-build-a-hackable-weight-tracking-scale-with-a-sense-of-humor-using-raspberry-pi/) does the job just fine it requires the red "sync" button in the battery compartment to be pressed each and every time, which is not ideal. This repo is based on the code provided by [Marcel Bieberbach](https://github.com/chaosbiber/wiiweigh) and the previous work of [Zachary Burchill](https://www.zachburchill.ml/bluetooth_scale_intro/) who addresses all the problems that others don't. 
 
-## caveats
-Adopted and tested on a Raspberry with Python 2. If Python 3 is the default, either the scripts need an update, or the installation process is slightly different.
+## Requirements
 
-On a test with Arch Linux and a newer Bluez stack I couldn't sucessfully disconnect the Balance Board from the PC-side. On the latest Raspbian version that's not a problem (yet).
+To run ```wiifitboardbit```, the following is required:
+- Linux (preferably a [Debian](https://www.debian.org/) based system).
+- A device with a bluetooth adapter.
+- [Python 3](https://www.python.org)
+- [Bluez 5](http://www.bluez.org/)
+- [XWiimote](https://github.com/dvdhrm/xwiimote) open-source driver.
+- [XWiimote-bindings](https://github.com/dvdhrm/xwiimote-bindings) XWiimote library bindings.
 
-## howto
-Install bluez, bluez-firmware and python-bluez.
-I've built xwiimote and bindings from source, because the debian xwiimote package did not harmonize with the bindings-source.
 
-Step-by-step procedure on Raspbian (tested on a Raspberry Pi 2 with Bluetooth dongle, Raspian lite from 04/2018)
+## Setup
 
-```bash
-sudo apt-get update && sudo apt-get upgrade
-# on raspbian already installed packages:
-# sudo apt-get install build-essential bluez
-sudo apt-get install python-dbus git autoconf libtool libudev-dev \
-                     libncurses5-dev swig python-dev python-numpy
-python -V
-# should return Python 2.7.x
+Start of with installing Python 3 and Bluez 5 if you don't have it:
+```
+sudo apt-get install python3 bluez5
+```
 
-mkdir src && cd src
+### XWiimote and XWiimote-Bindings
+
+Configuring [XWiimote](https://github.com/dvdhrm/xwiimote) and [XWiimote-bindings](https://github.com/dvdhrm/xwiimote-bindings) from scratch. 
+
+To configure and install XWiimote and XWiimote-bindings you should first install a few extra dependencies:
+```
+sudo apt-get install python-dbus git autoconf libtool libudev-dev libncurses5-dev swig python-dev python-numpy
+```
+Afterwards you can clone the repos, run _autogen.sh_ with the _/usr_ prefix flag and install the driver with its bindings.
+```
 git clone https://github.com/dvdhrm/xwiimote.git
 git clone https://github.com/dvdhrm/xwiimote-bindings.git
-git clone https://github.com/chaosbiber/wiiweigh.git
 cd xwiimote
-./autogen.sh
+./autogen.sh --prefix=/usr
 make
 sudo make install
 cd ../xwiimote-bindings
-./autogen.sh
+./autogen.sh --prefix=/usr
 make
 sudo make install
-cd ../wiiweigh
-
-sudo gpasswd -a pi bluetooth # add user pi to bluetooth group
-# reboot or the wiiweight script will throw an exception
-# when trying to disconnect as normal user
-sudo bluetoothctl
-# continue with bluetooth setup below
+cd ..
 ```
 
-The following procedure should only be required once, the sync survives host reboots. Just try if after the disconnect command you can connect by simply pushing the front button of the board, if not, delete the pairing and try again. The hid_wiimote module lights the blue led of the button when loaded, when it's not the led keeps blinking.
 
-Start `bluetoothctl`
+## Balance board pairing
 
+### Pairing the Wii Balance board for the first time
+
+An initial setup is required to pair the Wii Balance board with the device you're planning to run ```wiifitboardbit``` on. This pairing allows to use the front button on the Wii Balance board to initialize the weight tracking later.
+
+1. Start _bluetoothctl_ ```sudo bluetoothctl``` and then in the bluetooth setup screen:
+2. ```power on```
+3. ```agent on```
+4. ```scan on``` this will start looking for available bluetooth devices. Press the red "sync" button on the bottom of the balance board and take note of the MAC address of the Wii Balance board.
+5. ```pair <MAC of the Wii Balance board>``` this only pairs to the device but doesn't connect. The next command (_connect_) should be executed immediately after pairing since there's only a short timeout.
+6. ```connect <MAC of the Wii Balance board>```
+7. ```trust <MAC of the Wii Balance board>```
+
+After pairing and establishing trust we can disconnect, stop the scan and exit the bluetooth setup screen:
+
+8. ```disconnect <MAC of the Wii Balance board>```
+9. ```scan off```
+10. ```exit```
+
+So everything should look like this:
 ```
 power on
-agent on
-<press red sync button>
-scan on
-pair <MAC of the found wiimote, use TAB for autocompletion>
-# note: we do not explicitly connect, we just pair!
-connect <MAC of the wiimote>
-# there seems to be a pretty short timeout, so execute this immediately after the pairing command
+Changing power on succeeded
 
-trust <MAC of the wiimote>
-disconnect <MAC of the wiimote>
+
+agent on
+Agent has been registered/Agent is already registered
+
+
+scan on
+Discovery started
+...
+[NEW] Device XX:XX:XX:XX:XX:XX XX-XX-XX-XX-XX-XX
+...
+[CHG] Device XX:XX:XX:XX:XX:XX Name: Nintendo RVL-WBC-01
+[CHG] Device XX:XX:XX:XX:XX:XX Alias: Nintendo RVL-WBC-01
+
+
+pair XX:XX:XX:XX:XX:XX
+Attempting to pair with XX:XX:XX:XX:XX:XX
+...
+Pairing successful
+
+
+connect XX:XX:XX:XX:XX:XX
+Attempting to connect to XX:XX:XX:XX:XX:XX
+Connection successful
+
+
+trust XX:XX:XX:XX:XX:XX
+[CHG] Device XX:XX:XX:XX:XX:XX Trusted: yes
+Changing XX:XX:XX:XX:XX:XX trust succeeded
+
+
+disconnect XX:XX:XX:XX:XX:XX 
+Attempting to disconnect from XX:XX:XX:XX:XX:XX
+...
+Successful disconnected
+
+
 scan off
+Discovery stopped
+
+
 exit
 ```
-(From https://wiki.archlinux.org/index.php/XWiimote)
-exit with `exit` or Ctrl+D
-
-Manual disconnect (if needed during tests) with
-```
-echo "disconnect <MAC of the wiimote>" | bluetoothctl
-```
-This might throw warnings, but works. Alternatively remove the batteries.
