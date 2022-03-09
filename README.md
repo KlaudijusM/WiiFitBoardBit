@@ -13,7 +13,7 @@ Quite a few tutorials exist for tracking weight using the Wii Balance board and 
 To run ```wiifitboardbit```, the following is required:
 - Linux (preferably a [Debian](https://www.debian.org/) based system).
 - A device with a bluetooth adapter.
-- [Python 3](https://www.python.org)
+- [Python 2](https://www.python.org)
 - [Bluez 5](http://www.bluez.org/)
 - [XWiimote](https://github.com/dvdhrm/xwiimote) open-source driver.
 - [XWiimote-bindings](https://github.com/dvdhrm/xwiimote-bindings) XWiimote library bindings.
@@ -21,9 +21,9 @@ To run ```wiifitboardbit```, the following is required:
 
 ## Setup
 
-Start of with installing Python 3 and Bluez 5 if you don't have it:
+Start of with installing Python 2 and Bluez 5 if you don't have it:
 ```
-sudo apt-get install python3 bluez5
+sudo apt-get install python2 bluez5
 ```
 
 ### XWiimote and XWiimote-Bindings
