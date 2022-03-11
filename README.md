@@ -34,16 +34,16 @@ To configure and install XWiimote and XWiimote-bindings you should first install
 ```
 sudo apt-get install python-dbus git autoconf libtool libudev-dev libncurses5-dev swig python-dev python-numpy
 ```
-Afterwards you can clone the repos, run _autogen.sh_ with the _/usr_ prefix flag and install the driver with its bindings.
+Afterwards you can clone the repos, run _autogen.sh_ (you might need to use the _/usr_ prefix flag or [load path](https://askubuntu.com/a/684373) with ```export LD_LIBRARY_PATH=/usr/local/lib```) and install the driver with its bindings.
 ```
 git clone https://github.com/dvdhrm/xwiimote.git
 git clone https://github.com/dvdhrm/xwiimote-bindings.git
 cd xwiimote
-./autogen.sh --prefix=/usr
+./autogen.sh [--prefix=/usr]
 make
 sudo make install
 cd ../xwiimote-bindings
-./autogen.sh --prefix=/usr
+./autogen.sh [--prefix=/usr]
 make
 sudo make install
 cd ..
@@ -117,3 +117,14 @@ Discovery stopped
 
 exit
 ```
+
+
+## Running WiiFitBoardBit
+
+If you had to configure XWiimote and XWiimote-bindings with the _prefix_ flag you'll need to specify [additional info](https://github.com/dvdhrm/xwiimote-bindings/issues/12#issuecomment-549531955):
+
+```sudo LD_LIBRARY_PATH=<prefix>/lib PYTHONPATH=<prefix>/lib/python2.7/site-packages python ./xwiimote.py```
+
+Otherwise you can just launch the application with:
+
+```python ./xwiimote.py```
