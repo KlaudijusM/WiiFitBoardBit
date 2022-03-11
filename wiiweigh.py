@@ -2,14 +2,13 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import absolute_import, print_function, unicode_literals
+from six import iteritems
 
-import sys
 import time
 import select
+from webbrowser import get
 import numpy
 import xwiimote
-import fnmatch
-import os
 
 import bluezutils
 
@@ -20,87 +19,64 @@ try:
 except ImportError:
   import gobject as GObject
 
-relevant_ifaces = [ "org.bluez.Adapter1", "org.bluez.Device1" ]
-bbaddress = None
+from bluezutils import ADAPTER_INTERFACE, DEVICE_INTERFACE
+relevant_ifaces = [ADAPTER_INTERFACE, DEVICE_INTERFACE]
 
-#from https://github.com/irq0/wiiscale/blob/master/scale.py
-class RingBuffer():
-    def __init__(self, length):
-        self.length = length
-        self.reset()
-        self.filled = False
+from config import BALANCE_BOARD_MAC
 
-    def extend(self, x):
-        x_index = (self.index + numpy.arange(x.size)) % self.data.size
-        self.data[x_index] = x
-        self.index = x_index[-1] + 1
+MAX_DEVICE_TYPE_CHECK_RETRIES = 5
 
-        if self.filled == False and self.index == (self.length-1):
-            self.filled = True
+from ring_buffer import RingBuffer
 
-    def append(self, x):
-        x_index = (self.index + 1) % self.data.size
-        self.data[x_index] = x
-        self.index = x_index
-
-        if self.filled == False and self.index == (self.length-1):
-            self.filled = True
-
-
-    def get(self):
-        idx = (self.index + numpy.arange(self.data.size)) %self.data.size
-        return self.data[idx]
-
-    def reset(self):
-        self.data = numpy.zeros(self.length, dtype=numpy.int)
-        self.index = 0
-
+def get_device_type(dev, num_try=1):
+	""" Tries to get the device type with delay """
+	if num_try >= MAX_DEVICE_TYPE_CHECK_RETRIES:
+		return
+	time.sleep(1) # if devtype is checked to early it is reported as 'unknown'
+	iface = xwiimote.iface(dev)
+	device_type = iface.get_devtype()
+	if not device_type or device_type == 'unknown':
+		return get_device_type(dev, num_try+1)
+	return device_type
+	
 def dev_is_balanceboard(dev):
-    time.sleep(2) # if we check the devtype to early it is reported as 'unknown' :(
-
-    iface = xwiimote.iface(dev)
-    return iface.get_devtype() == 'balanceboard'
+	""" Checks if the device type is a balance board """
+	return get_device_type(dev) == 'balanceboard'
 
 def wait_for_balanceboard():
-    print("Waiting for balanceboard to connect..")
-    mon = xwiimote.monitor(True, False)
-    dev = None
+	print("Waiting for balanceboard to connect..")
+	mon = xwiimote.monitor(True, False)
+	balance_board_dev = None
 
-    while True:
-        mon.get_fd(True) # blocks
-        connected = mon.poll()
+	while not balance_board_dev:
+		mon.get_fd(True) # blocks
+		connected_device = mon.poll()
 
-        if connected == None:
-            continue
-        elif dev_is_balanceboard(connected):
-            print("Found balanceboard:", connected)
-            dev = connected
-            break
-        else:
-            print("Found non-balanceboard device:", connected)
-            print("Waiting..")
-
-    return dev
+		if not connected_device or not dev_is_balanceboard(connected_device):
+			continue
+		print("Balance board connected: {}".format(connected_device))
+		balance_board_dev = connected_device
+	return balance_board_dev
 
 def measurements(iface):
-    p = select.epoll.fromfd(iface.get_fd())
+	p = select.epoll.fromfd(iface.get_fd())
 
-    while True:
-        p.poll() # blocks
+	while True:
+		p.poll() # blocks
 
-        event = xwiimote.event()
-        iface.dispatch(event)
+		event = xwiimote.event()
+		iface.dispatch(event)
 
-        tl = event.get_abs(2)[0]
-        tr = event.get_abs(0)[0]
-        br = event.get_abs(3)[0]
-        bl = event.get_abs(1)[0]
+		tl = event.get_abs(2)[0]
+		tr = event.get_abs(0)[0]
+		br = event.get_abs(3)[0]
+		bl = event.get_abs(1)[0]
 
-        yield (tl,tr,br,bl)
+		yield (tl,tr,br,bl)
 
 def average_mesurements(ms, max_stddev=30):
 	last_measurements = RingBuffer(600)
-	counter = 0;
+	counter = 0
 
 	while True:
 		weight = sum(ms.next())
@@ -120,14 +96,13 @@ def find_device_address():
 	adapter = bluezutils.find_adapter()
 	adapter_path = adapter.object_path
 
-	om = dbus.Interface(bus.get_object("org.bluez", "/"), "org.freedesktop.DBus.ObjectManager")
-	objects = om.GetManagedObjects()
+	objects = bluezutils.get_managed_objects()
 
 	# find FIRST registered or connected Wii Balance Board ("RVL-WBC-01") and return address
-	for path, interfaces in objects.iteritems():
-		if "org.bluez.Device1" not in interfaces:
+	for path, interfaces in iteritems(objects):
+		if DEVICE_INTERFACE not in interfaces:
 			continue
-		properties = interfaces["org.bluez.Device1"]
+		properties = interfaces[DEVICE_INTERFACE]
 		if properties["Adapter"] != adapter_path:
 			continue
 		if properties["Alias"] != "Nintendo RVL-WBC-01":
@@ -136,7 +111,7 @@ def find_device_address():
 		return properties["Address"]
 
 def connect_balanceboard():
-	global bbaddress
+	global BALANCE_BOARD_MAC
 	#device is something like "/sys/devices/platform/soc/3f201000.uart/tty/ttyAMA0/hci0/hci0:11/0005:057E:0306.000C"
 	device = wait_for_balanceboard()
 
@@ -153,15 +128,16 @@ def connect_balanceboard():
 	print("{:.2f} +/- {:.2f}".format(kg/100.0, err/100.0))
 
 	# find address of the balance board (once) and disconnect (if found).
-	if bbaddress is None:
-		bbaddress = find_device_address()
-	if bbaddress is not None:
-		device = bluezutils.find_device(bbaddress)
-		device.Disconnect()
+	if not BALANCE_BOARD_MAC:
+		BALANCE_BOARD_MAC = find_device_address()
+	if BALANCE_BOARD_MAC:
+		device = bluezutils.find_device(BALANCE_BOARD_MAC)
+		if device:
+			device.Disconnect()
 
 def property_changed(interface, changed, invalidated, path):
 	iface = interface[interface.rfind(".") + 1:]
-	for name, value in changed.iteritems():
+	for name, value in iteritems(changed):
 		val = str(value)
 		print("{%s.PropertyChanged} [%s] %s = %s" % (iface, path, name, val))
 		# check if property "Connected" changed to "1". Does NOT check which device has connected, we only assume it was the balance board
@@ -182,4 +158,4 @@ if __name__ == '__main__':
 		mainloop = GObject.MainLoop()
 		mainloop.run()
 	except KeyboardInterrupt:
-		print("Bye!")
+		print("\nExiting")

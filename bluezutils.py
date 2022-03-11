@@ -1,3 +1,4 @@
+from six import iteritems
 import dbus
 
 SERVICE_NAME = "org.bluez"
@@ -6,8 +7,7 @@ DEVICE_INTERFACE = SERVICE_NAME + ".Device1"
 
 def get_managed_objects():
 	bus = dbus.SystemBus()
-	manager = dbus.Interface(bus.get_object("org.bluez", "/"),
-				"org.freedesktop.DBus.ObjectManager")
+	manager = dbus.Interface(bus.get_object(SERVICE_NAME, "/"), "org.freedesktop.DBus.ObjectManager")
 	return manager.GetManagedObjects()
 
 def find_adapter(pattern=None):
@@ -15,7 +15,7 @@ def find_adapter(pattern=None):
 
 def find_adapter_in_objects(objects, pattern=None):
 	bus = dbus.SystemBus()
-	for path, ifaces in objects.iteritems():
+	for path, ifaces in iteritems(objects):
 		adapter = ifaces.get(ADAPTER_INTERFACE)
 		if adapter is None:
 			continue
@@ -35,13 +35,13 @@ def find_device_in_objects(objects, device_address, adapter_pattern=None):
 	if adapter_pattern:
 		adapter = find_adapter_in_objects(objects, adapter_pattern)
 		path_prefix = adapter.object_path
-	for path, ifaces in objects.iteritems():
-		device = ifaces.get(DEVICE_INTERFACE)
-		if device is None:
+	for path, ifaces in iteritems(objects):
+		if not path.startswith(path_prefix):
 			continue
-		if (device["Address"] == device_address and
-						path.startswith(path_prefix)):
-			obj = bus.get_object(SERVICE_NAME, path)
-			return dbus.Interface(obj, DEVICE_INTERFACE)
+		device = ifaces.get(DEVICE_INTERFACE)
+		if not device or device.get("Address") != device_address:
+			continue
+		obj = bus.get_object(SERVICE_NAME, path)
+		return dbus.Interface(obj, DEVICE_INTERFACE)
 
 	raise Exception("Bluetooth device not found")
