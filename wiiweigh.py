@@ -10,7 +10,7 @@ from webbrowser import get
 import numpy
 import xwiimote
 
-import bluezutils
+import utils.bluezutils as bluezutils
 
 import dbus
 import dbus.mainloop.glib
@@ -19,14 +19,16 @@ try:
 except ImportError:
   import gobject as GObject
 
-from bluezutils import ADAPTER_INTERFACE, DEVICE_INTERFACE
+from utils.bluezutils import ADAPTER_INTERFACE, DEVICE_INTERFACE
 relevant_ifaces = [ADAPTER_INTERFACE, DEVICE_INTERFACE]
 
 from config import BALANCE_BOARD_MAC
 
 MAX_DEVICE_TYPE_CHECK_RETRIES = 5
 
-from ring_buffer import RingBuffer
+from utils.ring_buffer import RingBuffer
+
+from weight_logger.weight_logger import log_weight
 
 def get_device_type(dev, num_try=1):
 	""" Tries to get the device type with delay """
@@ -120,12 +122,12 @@ def connect_balanceboard():
 
 
 	(kg, err) = average_mesurements(measurements(iface))
+	kg /= 100.0
+	err /= 100.0
 
-	#
-	# do something with this data
-	# like log to file or send to server
-	#
-	print("{:.2f} +/- {:.2f}".format(kg/100.0, err/100.0))
+	# Log the weight and inform that the weight has been logged.
+	log_weight(kg)  
+	print("Weight logged: {:.2f}kg. +/- {:.2f}kg.".format(kg, err))
 
 	# find address of the balance board (once) and disconnect (if found).
 	if not BALANCE_BOARD_MAC:
