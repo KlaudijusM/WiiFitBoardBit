@@ -4,16 +4,19 @@ from six import iteritems
 from datetime import datetime
 from config import DATE_FORMAT, ALLOWED_WEIGHT_FLUCTUATION_KG, WEIGHT_LOG_LOCATION
 
+
 def create_weight_log_entry(user_id, weight, date_logged):
     weight_log = open(WEIGHT_LOG_LOCATION, "a")
-    weight_line = "\n{},{:.2f},{},False".format(user_id,weight,date_logged.strftime(DATE_FORMAT))
+    weight_line = "\n{},{:.2f},{},False".format(user_id, weight, date_logged.strftime(DATE_FORMAT))
     weight_log.write(weight_line)
     weight_log.close()
+
 
 def log_weight(weight):
     user_id = determine_user_id_by_weight(weight)
     log_date = datetime.utcnow()
     create_weight_log_entry(user_id, weight, log_date)
+
 
 def determine_user_id_by_weight(weight):
     latest_weight_by_user = get_latest_weight_by_user()
@@ -34,6 +37,7 @@ def determine_user_id_by_weight(weight):
         return maximum_user_id + 1
     return user_id
 
+
 def get_unsynced_weight_data():
     unsynced_data = list()
     with open(WEIGHT_LOG_LOCATION) as weight_log:
@@ -47,12 +51,13 @@ def get_unsynced_weight_data():
             user_id, weight, date_logged, synced = process_weight_line(weight_line)
             if not user_id:
                 continue
-            
+
             if not synced:
                 unsynced_data.append({
-                    'user_id': user_id, 'weight': weight, 'date_logged': date_logged, 
+                    'user_id': user_id, 'weight': weight, 'date_logged': date_logged,
                 })
     return unsynced_data
+
 
 def get_latest_weight_by_user():
     """ Loops through the log file and gets the latest date for each user """
@@ -79,6 +84,7 @@ def get_latest_weight_by_user():
             }
     return weights_by_user
 
+
 def process_weight_line(weight_line):
     weight_line = weight_line.lstrip().rstrip()
     if not weight_line:
@@ -89,8 +95,5 @@ def process_weight_line(weight_line):
     user_id = int(line_data[0].strip())
     weight = round(float(line_data[1].strip()), 2)
     date_logged = datetime.strptime(line_data[2], DATE_FORMAT)
-    synced = bool(line_data[3].strip())
+    synced = line_data[3].strip() == "True"
     return user_id, weight, date_logged, synced
-
-if __name__ == '__main__':
-    log_weight(100)
