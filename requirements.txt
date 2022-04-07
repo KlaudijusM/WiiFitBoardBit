@@ -1,4 +1,4 @@
 six==1.16.0
-numpy==1.16.6
+numpy==1.21.0
 dbus-python==1.2.18
 pygobject==3.36.1
