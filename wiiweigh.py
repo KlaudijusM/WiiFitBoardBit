@@ -5,6 +5,7 @@ from __future__ import absolute_import, print_function, unicode_literals
 
 import select
 import time
+from threading import Thread
 
 import dbus.mainloop.glib
 import numpy
@@ -129,7 +130,8 @@ def connect_balance_board():
     err /= 100.0
 
     # Log the weight and inform that the weight has been logged.
-    log_weight(kg)
+    weight_logging_thread = Thread(target=log_weight, args=(kg,))
+    weight_logging_thread.start()
     print("Weight logged: {:.2f}kg. +/- {:.2f}kg.".format(kg, err))
 
     # find address of the balance board (once) and disconnect (if found).
