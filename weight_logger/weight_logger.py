@@ -1,9 +1,13 @@
 # -*- coding: utf-8 -*-
 
-from six import iteritems
-from datetime import datetime
-from config import DATE_FORMAT, ALLOWED_WEIGHT_FLUCTUATION_KG, WEIGHT_LOG_LOCATION
 import csv
+from datetime import datetime
+from threading import Thread
+
+from six import iteritems
+
+from config import DATE_FORMAT, ALLOWED_WEIGHT_FLUCTUATION_KG, WEIGHT_LOG_LOCATION
+from fitbit_sync.fitbit_sync import sync_unsynced_weight
 
 
 def get_csv_file_options():
@@ -24,6 +28,10 @@ def log_weight(weight):
     log_date = datetime.utcnow()
     user_id = determine_user_id_by_weight(weight)
     create_weight_log_entry(user_id, weight, log_date)
+
+    # Start fit bit weight synchronization thread
+    fitbit_sync_thread = Thread(target=sync_unsynced_weight)
+    fitbit_sync_thread.start()
 
 
 def determine_user_id_by_weight(weight):
