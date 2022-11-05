@@ -3,25 +3,33 @@
 from six import iteritems
 from datetime import datetime
 from config import DATE_FORMAT, ALLOWED_WEIGHT_FLUCTUATION_KG, WEIGHT_LOG_LOCATION
+import csv
+
+
+def get_csv_file_options():
+    return {
+        'delimiter': ',',
+        'quotechar': '"',
+        'quoting': csv.QUOTE_MINIMAL
+    }
 
 
 def create_weight_log_entry(user_id, weight, date_logged):
-    weight_log = open(WEIGHT_LOG_LOCATION, "a")
-    weight_line = "\n{},{:.2f},{},False".format(user_id, weight, date_logged.strftime(DATE_FORMAT))
-    weight_log.write(weight_line)
-    weight_log.close()
+    with open(WEIGHT_LOG_LOCATION, 'a') as weight_log:
+        csv_writer = csv.writer(weight_log, **get_csv_file_options())
+        csv_writer.writerow([user_id, '{:.2f}'.format(weight), date_logged.strftime(DATE_FORMAT), False])
 
 
 def log_weight(weight):
-    user_id = determine_user_id_by_weight(weight)
     log_date = datetime.utcnow()
+    user_id = determine_user_id_by_weight(weight)
     create_weight_log_entry(user_id, weight, log_date)
 
 
 def determine_user_id_by_weight(weight):
     latest_weight_by_user = get_latest_weight_by_user()
     if not latest_weight_by_user:
-        return 1  # No users have logged their weight - asuume it's the first user
+        return 1  # No users have logged their weight - assume it's the first user
     differences_by_user = list()
     for user_id, user_weight_data in iteritems(latest_weight_by_user):
         user_weight = user_weight_data.get('weight', 0.0)
@@ -41,8 +49,9 @@ def determine_user_id_by_weight(weight):
 def get_unsynced_weight_data():
     unsynced_data = list()
     with open(WEIGHT_LOG_LOCATION) as weight_log:
+        weight_reader = csv.reader(weight_log, **get_csv_file_options())
         header = True
-        for weight_line in weight_log:
+        for weight_line in weight_reader:
             if header:
                 header = False
                 continue  # Ignore header line
@@ -63,8 +72,9 @@ def get_latest_weight_by_user():
     """ Loops through the log file and gets the latest date for each user """
     weights_by_user = dict()
     with open(WEIGHT_LOG_LOCATION) as weight_log:
+        weight_reader = csv.reader(weight_log, **get_csv_file_options())
         header = True
-        for weight_line in weight_log:
+        for weight_line in weight_reader:
             if header:
                 header = False
                 continue  # Ignore header line
@@ -86,14 +96,10 @@ def get_latest_weight_by_user():
 
 
 def process_weight_line(weight_line):
-    weight_line = weight_line.lstrip().rstrip()
-    if not weight_line:
+    if not weight_line or len(weight_line) != 4:
         return [None] * 4
-    line_data = weight_line.split(',')
-    if not line_data or len(line_data) != 4:
-        return [None] * 4
-    user_id = int(line_data[0].strip())
-    weight = round(float(line_data[1].strip()), 2)
-    date_logged = datetime.strptime(line_data[2], DATE_FORMAT)
-    synced = line_data[3].strip() == "True"
+    user_id = int(weight_line[0])
+    weight = round(float(weight_line[1]), 2)
+    date_logged = datetime.strptime(weight_line[2], DATE_FORMAT)
+    synced = weight_line[3] == "True"
     return user_id, weight, date_logged, synced
