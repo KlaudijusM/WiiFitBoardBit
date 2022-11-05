@@ -1,11 +1,14 @@
 import numpy
 
-#from https://github.com/irq0/wiiscale/blob/master/scale.py
+
+# From https://github.com/irq0/wiiscale/blob/master/scale.py
 class RingBuffer():
 	def __init__(self, length):
 		self.length = length
 		self.reset()
 		self.filled = False
+		self.index = None
+		self.data = None
 
 	def extend(self, x):
 		x_index = (self.index + numpy.arange(x.size)) % self.data.size
@@ -24,7 +27,7 @@ class RingBuffer():
 			self.filled = True
 
 	def get(self):
-		idx = (self.index + numpy.arange(self.data.size)) %self.data.size
+		idx = (self.index + numpy.arange(self.data.size)) % self.data.size
 		return self.data[idx]
 
 	def reset(self):

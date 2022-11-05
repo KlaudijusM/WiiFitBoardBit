@@ -2,18 +2,16 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import absolute_import, print_function, unicode_literals
-from six import iteritems
 
-import time
 import select
-from webbrowser import get
+import time
+
+import dbus.mainloop.glib
 import numpy
 import xwiimote
+from six import iteritems
 
 import utils.bluezutils as bluezutils
-
-import dbus
-import dbus.mainloop.glib
 
 try:
     from gi.repository import GObject
@@ -22,11 +20,9 @@ except ImportError:
 
 from utils.bluezutils import ADAPTER_INTERFACE, DEVICE_INTERFACE
 
-from config import BALANCE_BOARD_MAC
-
 from utils.ring_buffer import RingBuffer
 
-from weight_logger.weight_logger import log_weight, get_unsynced_weight_data
+from weight_logger.weight_logger import log_weight
 
 MAX_DEVICE_TYPE_CHECK_RETRIES = 5
 relevant_ifaces = [ADAPTER_INTERFACE, DEVICE_INTERFACE]
@@ -36,7 +32,7 @@ def get_device_type(dev, num_try=1):
     """ Tries to get the device type with delay """
     if num_try >= MAX_DEVICE_TYPE_CHECK_RETRIES:
         return
-    time.sleep(1)  # if devtype is checked to early it is reported as 'unknown'
+    time.sleep(1)  # If the device type is checked to early it is reported as 'unknown'
     iface = xwiimote.iface(dev)
     device_type = iface.get_devtype()
     if not device_type or device_type == 'unknown':
@@ -44,13 +40,13 @@ def get_device_type(dev, num_try=1):
     return device_type
 
 
-def dev_is_balanceboard(dev):
+def dev_is_balance_board(dev):
     """ Checks if the device type is a balance board """
     return get_device_type(dev) == 'balanceboard'
 
 
-def wait_for_balanceboard():
-    print("Waiting for balanceboard to connect..")
+def wait_for_balance_board():
+    print("Waiting for the Wii Balance Board to connect..")
     mon = xwiimote.monitor(True, False)
     balance_board_dev = None
 
@@ -58,7 +54,7 @@ def wait_for_balanceboard():
         mon.get_fd(True)  # blocks
         connected_device = mon.poll()
 
-        if not connected_device or not dev_is_balanceboard(connected_device):
+        if not connected_device or not dev_is_balance_board(connected_device):
             continue
         print("Balance board connected: {}".format(connected_device))
         balance_board_dev = connected_device
@@ -82,7 +78,7 @@ def measurements(iface):
         yield (tl, tr, br, bl)
 
 
-def average_mesurements(ms, max_stddev=30):
+def average_measurements(ms, max_stddev=30):
     last_measurements = RingBuffer(600)
     counter = 0
 
@@ -116,19 +112,19 @@ def find_device_address():
             continue
         if properties["Alias"] != "Nintendo RVL-WBC-01":
             continue
-        print("found Wii Balanceboard with address %s" % (properties["Address"]))
+        print("Found the Wii Balance Board with address %s" % (properties["Address"]))
         return properties["Address"]
 
 
-def connect_balanceboard():
+def connect_balance_board():
     global BALANCE_BOARD_MAC
     # device is something like "/sys/devices/platform/soc/3f201000.uart/tty/ttyAMA0/hci0/hci0:11/0005:057E:0306.000C"
-    device = wait_for_balanceboard()
+    device = wait_for_balance_board()
 
     iface = xwiimote.iface(device)
     iface.open(xwiimote.IFACE_BALANCE_BOARD)
 
-    (kg, err) = average_mesurements(measurements(iface))
+    (kg, err) = average_measurements(measurements(iface))
     kg /= 100.0
     err /= 100.0
 
@@ -153,7 +149,7 @@ def property_changed(interface, changed, invalidated, path):
         # check if property "Connected" changed to "1". Does NOT check which device has connected, we only assume it
         # was the balance board
         if name == "Connected" and val == "1":
-            connect_balanceboard()
+            connect_balance_board()
 
 
 if __name__ == '__main__':
