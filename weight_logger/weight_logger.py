@@ -1,13 +1,15 @@
 # -*- coding: utf-8 -*-
 
 import csv
+import logging
+import os.path
 from datetime import datetime
-from threading import Thread
 
 from six import iteritems
 
-from config import DATE_FORMAT, ALLOWED_WEIGHT_FLUCTUATION_KG, WEIGHT_LOG_LOCATION
-from fitbit_sync.fitbit_sync import sync_unsynced_weight
+from config import DATETIME_FORMAT, ALLOWED_WEIGHT_FLUCTUATION_KG, WEIGHT_LOG_LOCATION
+
+weight_log_data_file = os.path.join(WEIGHT_LOG_LOCATION)
 
 
 def get_csv_file_options():
@@ -19,22 +21,21 @@ def get_csv_file_options():
 
 
 def create_weight_log_entry(user_id, weight, date_logged):
-    with open(WEIGHT_LOG_LOCATION, 'a') as weight_log:
+    logging.info("[WL] Writing weight log entry".format(user_id, weight))
+    with open(weight_log_data_file, 'a') as weight_log:
         csv_writer = csv.writer(weight_log, **get_csv_file_options())
-        csv_writer.writerow([user_id, '{:.2f}'.format(weight), date_logged.strftime(DATE_FORMAT), False])
+        csv_writer.writerow([user_id, '{:.2f}'.format(weight), date_logged.strftime(DATETIME_FORMAT), False])
 
 
 def log_weight(weight):
-    log_date = datetime.utcnow()
+    logging.info("Weight logging for weight {:.2f}, started (WL)".format(weight))
+    log_date = datetime.now()
     user_id = determine_user_id_by_weight(weight)
     create_weight_log_entry(user_id, weight, log_date)
 
-    # Start fit bit weight synchronization thread
-    fitbit_sync_thread = Thread(target=sync_unsynced_weight)
-    fitbit_sync_thread.start()
-
 
 def determine_user_id_by_weight(weight):
+    logging.info("[WL] Searching user by weight (allowed fluctuation {:.2f} kg.)".format(ALLOWED_WEIGHT_FLUCTUATION_KG))
     latest_weight_by_user = get_latest_weight_by_user()
     if not latest_weight_by_user:
         return 1  # No users have logged their weight - assume it's the first user
@@ -51,12 +52,14 @@ def determine_user_id_by_weight(weight):
         # logged their weight.
         maximum_user_id = max(latest_weight_by_user.keys())
         return maximum_user_id + 1
+    logging.info("[WL] Weight assigned to user ID: {}".format(user_id))
     return user_id
 
 
 def get_unsynced_weight_data():
+    logging.info("[WL] Getting unsynced weight data")
     unsynced_data = list()
-    with open(WEIGHT_LOG_LOCATION) as weight_log:
+    with open(weight_log_data_file) as weight_log:
         weight_reader = csv.reader(weight_log, **get_csv_file_options())
         header = True
         for weight_line in weight_reader:
@@ -73,13 +76,15 @@ def get_unsynced_weight_data():
                 unsynced_data.append({
                     'user_id': user_id, 'weight': weight, 'date_logged': date_logged,
                 })
+    logging.info("[WL] Found {} unsynced entries".format(len(unsynced_data)))
     return unsynced_data
 
 
 def get_latest_weight_by_user():
     """ Loops through the log file and gets the latest date for each user """
+    logging.info("[WL] Getting logged weights by user")
     weights_by_user = dict()
-    with open(WEIGHT_LOG_LOCATION) as weight_log:
+    with open(weight_log_data_file) as weight_log:
         weight_reader = csv.reader(weight_log, **get_csv_file_options())
         header = True
         for weight_line in weight_reader:
@@ -100,6 +105,7 @@ def get_latest_weight_by_user():
             weights_by_user[user_id] = {
                 'weight': weight, 'date_logged': date_logged, 'synced': synced
             }
+    logging.info("[WL] Found {} users with logged weight".format(len(weights_by_user)))
     return weights_by_user
 
 
@@ -108,6 +114,6 @@ def process_weight_line(weight_line):
         return [None] * 4
     user_id = int(weight_line[0])
     weight = round(float(weight_line[1]), 2)
-    date_logged = datetime.strptime(weight_line[2], DATE_FORMAT)
+    date_logged = datetime.strptime(weight_line[2], DATETIME_FORMAT)
     synced = weight_line[3] == "True"
     return user_id, weight, date_logged, synced

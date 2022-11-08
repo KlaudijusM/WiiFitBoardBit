@@ -1,8 +1,8 @@
-#!/usr/bin/python
 # -*- coding: utf-8 -*-
 
 from __future__ import absolute_import, print_function, unicode_literals
 
+import logging
 import select
 import time
 from threading import Thread
@@ -24,6 +24,8 @@ from utils.bluezutils import ADAPTER_INTERFACE, DEVICE_INTERFACE
 from utils.ring_buffer import RingBuffer
 
 from weight_logger.weight_logger import log_weight
+
+from config import BALANCE_BOARD_MAC
 
 MAX_DEVICE_TYPE_CHECK_RETRIES = 5
 relevant_ifaces = [ADAPTER_INTERFACE, DEVICE_INTERFACE]
@@ -47,7 +49,7 @@ def dev_is_balance_board(dev):
 
 
 def wait_for_balance_board():
-    print("Waiting for the Wii Balance Board to connect..")
+    logging.info("[BBTT] Waiting for the Wii Balance Board to connect...")
     mon = xwiimote.monitor(True, False)
     balance_board_dev = None
 
@@ -57,7 +59,7 @@ def wait_for_balance_board():
 
         if not connected_device or not dev_is_balance_board(connected_device):
             continue
-        print("Balance board connected: {}".format(connected_device))
+        logging.info("[BBTT] Balance board connected: {}".format(connected_device))
         balance_board_dev = connected_device
     return balance_board_dev
 
@@ -113,8 +115,9 @@ def find_device_address():
             continue
         if properties["Alias"] != "Nintendo RVL-WBC-01":
             continue
-        print("Found the Wii Balance Board with address %s" % (properties["Address"]))
-        return properties["Address"]
+        address = properties["Address"]
+        logging.info("[BBTT] Found the Wii Balance Board with address: {}".format(address))
+        return address
 
 
 def connect_balance_board():
@@ -130,9 +133,10 @@ def connect_balance_board():
     err /= 100.0
 
     # Log the weight and inform that the weight has been logged.
+    logging.info("[BBTT] Weight registered: {:.2f}kg. +/- {:.2f}kg.".format(kg, err))
+    logging.info("[BBTT] Attempting to log weight")
     weight_logging_thread = Thread(target=log_weight, args=(kg,))
     weight_logging_thread.start()
-    print("Weight logged: {:.2f}kg. +/- {:.2f}kg.".format(kg, err))
 
     # find address of the balance board (once) and disconnect (if found).
     if not BALANCE_BOARD_MAC:
@@ -147,25 +151,38 @@ def property_changed(interface, changed, invalidated, path):
     iface = interface[interface.rfind(".") + 1:]
     for name, value in iteritems(changed):
         val = str(value)
-        print("{%s.PropertyChanged} [%s] %s = %s" % (iface, path, name, val))
+        logging.info("[BBTT] {{{}.PropertyChanged}} [{}] {} = {}".format(iface, path, name, val))
         # check if property "Connected" changed to "1". Does NOT check which device has connected, we only assume it
         # was the balance board
         if name == "Connected" and val == "1":
             connect_balance_board()
 
 
-if __name__ == '__main__':
-    dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
+def main():
+    logging.info("Starting Bluetooth WiiFit board tracking thread (BBTT)")
 
+    logging.info("[BBTT] Preparing DBus")
+    dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
     bus = dbus.SystemBus()
 
+    logging.info("[BBTT] Adding BlueZ signal receiver")
     # bluetooth (dis)connection triggers PropertiesChanged signal
     bus.add_signal_receiver(property_changed, bus_name="org.bluez",
                             dbus_interface="org.freedesktop.DBus.Properties",
                             signal_name="PropertiesChanged",
                             path_keyword="path")
     try:
+        logging.info("[BBTT] Starting GObject MainLoop")
         mainloop = GObject.MainLoop()
         mainloop.run()
     except KeyboardInterrupt:
-        print("\nExiting")
+        logging.info("[BBTT] Stopping Bluetooth WiiFit board tracking due to Keyboard Interrupt event")
+        exit(0)
+    except Exception as exc:
+        logging.error("[BBTT] ERROR! {}:{}".format(type(exc).__name__, exc))
+        raise exc
+
+
+if __name__ == "__main__":
+    main()
+

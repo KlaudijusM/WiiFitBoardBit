@@ -2,13 +2,13 @@ import numpy
 
 
 # From https://github.com/irq0/wiiscale/blob/master/scale.py
-class RingBuffer():
+class RingBuffer:
 	def __init__(self, length):
 		self.length = length
-		self.reset()
 		self.filled = False
-		self.index = None
+		self.index = 0
 		self.data = None
+		self.reset()
 
 	def extend(self, x):
 		x_index = (self.index + numpy.arange(x.size)) % self.data.size
