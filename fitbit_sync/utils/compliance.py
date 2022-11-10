@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # From https://github.com/orcasgit/python-fitbit/blob/master/fitbit/compliance.py
 from json import loads, dumps
 

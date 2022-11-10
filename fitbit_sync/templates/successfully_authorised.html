@@ -1,0 +1,12 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+    <div class="container text-center">
+        <h1>Successfully Authorised!</h1>
+    </div>
+    <div class="container text-center">
+        <a class="btn btn-primary btn-lg" role="button" aria-disabled="true" href="{{ url_for('fitbit_auth') }}">
+            Go back
+        </a>
+    </div>
+{% endblock %}

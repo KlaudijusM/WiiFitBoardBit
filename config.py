@@ -1,5 +1,3 @@
-BALANCE_BOARD_MAC = None
-
 # =============================================== FitBit Synchronization ===============================================
 # Change to True to enable weight synchronization with FitBit. Go to http://localhost:8080/ for more info.
 
@@ -9,10 +7,7 @@ BALANCE_BOARD_MAC = None
 FITBIT_SYNC_ENABLED = False
 
 # Set up a new app for yourself at https://dev.fitbit.com/apps and fill the values bellow. For redirect URL you can
-# set the local IP of the device you'll be running this on (http://192.168.XXX.XXX:8080/fitbit_auth_redirect) or you
-# can manually create copies of the sample user data file (/fitbit_sync/auth_data/user_sample) for each user you wish to
-# log weight and add the OAuth2 Access token manually which you can get by calling your applications
-# OAuth 2.0: Authorization URI. Refresh token and expiry date is not needed for first authorization.
+# set the local IP of the device you'll be running this on (http://192.168.XXX.XXX:8080/fitbit_auth_redirect)
 
 # To set up your application go to https://dev.fitbit.com/apps
 # Application Website URL: Use your GitHub account or something else
@@ -25,6 +20,9 @@ FITBIT_SYNC_ENABLED = False
 # Default Access Type: Read and Write
 FITBIT_CLIENT_ID = None
 FITBIT_CLIENT_SECRET = None
+
+# How often to attempt weight logging on FitBit
+WEIGHT_SYNC_LOOP_TIME_SECS = 30
 # ======================================================================================================================
 
 
@@ -50,7 +48,9 @@ ALLOWED_WEIGHT_FLUCTUATION_KG = 10.0
 
 # ======================================================= Other ========================================================
 # Various other settings, there should be no reason to change these
+UNITS = 'METRIC'  # Set 'METRIC' for kg, 'IMPERIAL' for pounds.
 DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S"  # Sets the date format in which to store the weight
 WEIGHT_LOG_LOCATION = "data/weight.csv"  # Sets the weight file location
 LOG_LOCATION = 'log.txt'  # Sets the log file location for general system info and error output
+BALANCE_BOARD_MAC = None  # (optional) Can set your wii balance board MAC address if you already know it
 # ======================================================================================================================

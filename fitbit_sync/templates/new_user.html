@@ -1,0 +1,14 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+    <div class="container text-center">
+        <h1>New user</h1>
+        <p>Enter user name</p>
+    </div>
+    <div class="container text-center">
+        <form action="{{ url_for('fitbit_create_user') }}" method="post">
+            <input type="text" name="user_name">
+            <input type="submit" value="Create">
+        </form>
+    </div>
+{% endblock %}

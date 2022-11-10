@@ -5,6 +5,7 @@ from __future__ import absolute_import, print_function, unicode_literals
 import logging
 import select
 import time
+from datetime import datetime
 from threading import Thread
 
 import dbus.mainloop.glib
@@ -12,23 +13,34 @@ import numpy
 import xwiimote
 from six import iteritems
 
-import utils.bluezutils as bluezutils
+from wii_fit_bt_weight_tracker.utils import bluezutils
+from wii_fit_bt_weight_tracker.utils.ring_buffer import RingBuffer
 
 try:
     from gi.repository import GObject
 except ImportError:
     import gobject as GObject
 
-from utils.bluezutils import ADAPTER_INTERFACE, DEVICE_INTERFACE
+from weight_logger.weight_logger import WeightLogger
 
-from utils.ring_buffer import RingBuffer
-
-from weight_logger.weight_logger import log_weight
-
-from config import BALANCE_BOARD_MAC
+from config import BALANCE_BOARD_MAC, UNITS
 
 MAX_DEVICE_TYPE_CHECK_RETRIES = 5
-relevant_ifaces = [ADAPTER_INTERFACE, DEVICE_INTERFACE]
+relevant_ifaces = [bluezutils.ADAPTER_INTERFACE, bluezutils.DEVICE_INTERFACE]
+
+
+def convert_measurements_to_units(kg, err):
+    units = 'kg' if UNITS == 'METRIC' else 'lbs'
+    weight = kg
+    if UNITS != 'METRIC':
+        weight = kg * 2.2
+        err = err * 2.2
+    return weight, err, units
+
+
+def log_weight(weight):
+    wl = WeightLogger()
+    wl.log_weight(weight)
 
 
 def get_device_type(dev, num_try=1):
@@ -82,22 +94,32 @@ def measurements(iface):
 
 
 def average_measurements(ms, max_stddev=30):
-    last_measurements = RingBuffer(600)
+    weight_measurements = RingBuffer(600)
     counter = 0
+
+    time.sleep(2)  # Wait for user to get on to the scale
+    max_time_to_measure = 5   # How long to measure until logging weight
+    measurement_start = datetime.now()
 
     while True:
         weight = sum(ms.next())
 
-        last_measurements.append(weight)
+        weight_measurements.append(weight)
+        mean = numpy.mean(weight_measurements.data)
+        stddev = numpy.std(weight_measurements.data)
 
-        mean = numpy.mean(last_measurements.data)
-        stddev = numpy.std(last_measurements.data)
-        # print ("%f, %f" % (mean, stddev))
-        if stddev < max_stddev and last_measurements.filled and mean > 100:
+        # logging.info("Mean {:.2f} STDDEV {:.2f} WEIGHT {:.2f}".format(mean, stddev, weight))
+
+        if stddev < max_stddev and weight_measurements.filled and mean > 100:
             return numpy.array((mean, stddev))
         if counter > 5000:
             return numpy.array((0, 0))
-        counter = counter + 1
+
+        time_elapsed = (datetime.now() - measurement_start).seconds
+        if time_elapsed > max_time_to_measure and mean > 100 and stddev < max_stddev * 1.5:
+            return numpy.array((mean, stddev))
+
+        counter += 1
 
 
 def find_device_address():
@@ -108,9 +130,9 @@ def find_device_address():
 
     # find FIRST registered or connected Wii Balance Board ("RVL-WBC-01") and return address
     for path, interfaces in iteritems(objects):
-        if DEVICE_INTERFACE not in interfaces:
+        if bluezutils.DEVICE_INTERFACE not in interfaces:
             continue
-        properties = interfaces[DEVICE_INTERFACE]
+        properties = interfaces[bluezutils.DEVICE_INTERFACE]
         if properties["Adapter"] != adapter_path:
             continue
         if properties["Alias"] != "Nintendo RVL-WBC-01":
@@ -131,9 +153,10 @@ def connect_balance_board():
     (kg, err) = average_measurements(measurements(iface))
     kg /= 100.0
     err /= 100.0
+    weight, err, units = convert_measurements_to_units(kg, err)
 
     # Log the weight and inform that the weight has been logged.
-    logging.info("[BBTT] Weight registered: {:.2f}kg. +/- {:.2f}kg.".format(kg, err))
+    logging.info("[BBTT] Weight registered: {:.2f}{}. +/- {:.2f}{}.".format(weight, units, err, units))
     logging.info("[BBTT] Attempting to log weight")
     weight_logging_thread = Thread(target=log_weight, args=(kg,))
     weight_logging_thread.start()

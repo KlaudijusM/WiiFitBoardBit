@@ -1,11 +1,23 @@
 {% extends 'layout.html' %}
 
 {% block content %}
-    <div class="container">
-        <h1 class="text-center">WiiFitBoardBit FitBit Authorisation</h1>
-        <p class="text-center">Click the button bellow to authorise with FitBit</p>
-    </div>
     <div class="container text-center">
-        <a class="btn btn-primary btn-lg" role="button" aria-disabled="true" href="/fitbit_auth_new_user">Authorise</a>
+        <h1>WiiFitBoardBit FitBit Authorisation</h1>
+        <p>Click the button bellow to add a new user</p>
+        <a class="btn btn-primary btn-lg btn-success" role="button" aria-disabled="true"
+           href="{{ url_for('create_new_user') }}">
+            New user
+        </a>
     </div>
+    {% if user_data %}
+        <div class="container text-center" style="margin-top: 20px;">
+            <p>Click on the user you want to authorise</p>
+            {% for user in user_data %}
+                <div style="margin-top: 10px; margin-bottom: 10px;">
+                    <a class="btn btn-primary btn-md" role="button" aria-disabled="true"
+                       href="{{ '/fitbit_auth/%s'%user.user_id|urlencode  }}">{{ user.user_name }}</a>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
 {% endblock %}
