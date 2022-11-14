@@ -32,7 +32,7 @@ Configuring [XWiimote](https://github.com/dvdhrm/xwiimote) and [XWiimote-binding
 
 To configure and install XWiimote and XWiimote-bindings you should first install a few extra dependencies:
 ```
-sudo apt-get install python-dbus git autoconf libtool libudev-dev libncurses5-dev swig python-dev python-numpy
+sudo apt-get install python-dbus git autoconf libtool libudev-dev libncurses5-dev swig python-dev python-numpy libcairo2-dev libgirepository1.0-dev
 ```
 Afterwards you can clone the repos, run _autogen.sh_ (you might need to use the _/usr_ prefix flag or [load path](https://askubuntu.com/a/684373) with ```export LD_LIBRARY_PATH=/usr/local/lib```) and install the driver with its bindings.
 ```
