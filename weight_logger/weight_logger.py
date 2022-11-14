@@ -5,6 +5,7 @@ import logging
 import os.path
 from collections import defaultdict
 from datetime import datetime
+from inspect import getsourcefile
 
 from six import iteritems
 
@@ -25,9 +26,13 @@ def format_weight(weight):
     return '{:.2f}'.format(weight)
 
 
+base_file = os.path.abspath(getsourcefile(lambda: 0))
+base_file_location = base_file[:len(base_file)-7]
+
+
 class WeightLogger:
 
-    weight_log_data_file = os.path.join(WEIGHT_LOG_LOCATION)
+    weight_log_data_file = os.path.join(base_file_location, WEIGHT_LOG_LOCATION)
     log_header_columns = ['user_id', 'weight', 'datetime', 'synced']
 
     @staticmethod
@@ -180,7 +185,7 @@ class WeightLogger:
 
     def store_all_weights(self):
         logging.info("[WL] Storing {} weights currently in memory".format(len(self.weights)))
-        with open(WEIGHT_LOG_LOCATION, 'w') as weight_log:
+        with open(self.weight_log_data_file, 'w') as weight_log:
             csv_writer = csv.writer(weight_log, **get_csv_file_options())
             csv_writer.writerow(self.log_header_columns)
             for weight in self.weights:

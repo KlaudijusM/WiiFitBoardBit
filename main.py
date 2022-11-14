@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 import logging
+import os.path
 import time
+from inspect import getsourcefile
 from threading import Thread
 
 from config import FITBIT_SYNC_ENABLED, LOG_LOCATION, DATETIME_FORMAT
@@ -10,7 +12,10 @@ from wii_fit_bt_weight_tracker import tracker
 
 def main():
     # Setup logging
-    logging.basicConfig(filename=LOG_LOCATION, filemode='a', format='%(asctime)s %(message)s', datefmt=DATETIME_FORMAT,
+    base_file = os.path.abspath(getsourcefile(lambda: 0))
+    base_file_location = base_file[:len(base_file)-7]
+    log_location = os.path.join(base_file_location, LOG_LOCATION)
+    logging.basicConfig(filename=log_location, filemode='a', format='%(asctime)s %(message)s', datefmt=DATETIME_FORMAT,
                         level=logging.INFO)
 
     try:
