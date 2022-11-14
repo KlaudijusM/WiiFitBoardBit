@@ -121,6 +121,9 @@ exit
 
 ## Running WiiFitBoardBit
 
+You should firs make sure that all of the requirements are met. You can install all of the requirements by navigating to the WiiFitBoardBit folder and running:
+```pip install -r requirements.txt```
+
 If you had to configure XWiimote and XWiimote-bindings with the _prefix_ flag you'll need to specify [additional info](https://github.com/dvdhrm/xwiimote-bindings/issues/12#issuecomment-549531955):
 
 ```sudo LD_LIBRARY_PATH=<prefix>/lib PYTHONPATH=<prefix>/lib/python2.7/site-packages python ./wiiweigh.py```
