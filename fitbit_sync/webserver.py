@@ -72,7 +72,7 @@ def successfully_authorised():
 def main():
     logging.info("Starting FitBit Authentication web server (FBAS)")
     if FITBIT_SYNC_ENABLED:  # No point in running this server if FitBit sync is not enabled
-        app.run(port=8080)
+        app.run(port=443, host="0.0.0.0", ssl_context='adhoc')
 
 
 if __name__ == "__main__":
