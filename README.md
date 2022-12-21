@@ -126,8 +126,24 @@ You should firs make sure that all of the requirements are met. You can install 
 
 If you had to configure XWiimote and XWiimote-bindings with the _prefix_ flag you'll need to specify [additional info](https://github.com/dvdhrm/xwiimote-bindings/issues/12#issuecomment-549531955):
 
-```sudo LD_LIBRARY_PATH=<prefix>/lib PYTHONPATH=<prefix>/lib/python2.7/site-packages python ./wiiweigh.py```
+```sudo LD_LIBRARY_PATH=<prefix>/lib PYTHONPATH=<prefix>/lib/python2.7/site-packages python ./main.py```
 
 Otherwise you can just launch the application with:
 
-```python ./wiiweigh.py```
+```python ./main.py```
+
+If you managed to pair the WiiFit Board in the steps described above you shouldn't have any problems running the ```main.py``` file, clicking the power button on the board and stepping on. After a few seconds the board (indicated by the light on it) should turn off and the weight should be logged in a CSV file.
+
+## How this works
+
+As described above, the main source code that handles the weight logging was cloned from this repository of [Marcel](https://github.com/chaosbiber/wiiweigh). It was slightly adjusted and optimised to decrease the time to log the weight (decreasing the precision) and to store the data in a CSV file.
+
+Furthermore I've added an API integration with FitBit that checks the stored data every 30 seconds by default and updates any non-synced data. To enable this integration I suggest you check out the ```config.py``` file and register a personal FitBit app. The reason why you need to register an app is to have a direct integration between FitBit and your local clone so that the data is not going through some third party server/app (that I would have to host). This FitBit integration is purely optional but if you use a FitBit device it's handy.
+
+## Future work, known issues and final thoughts
+
+I'm not planning to make any changes to this as long as it works. I've built this for my own personal needs and to help others that might want to repurpose their old WiiFit Board. It shouldn't be hard to adjust this repo to sync with Google Health or other health data tracking providers.
+
+The code is not the best. XWiiMote still runs on Python 2 and the build process of it is problematic. The communication with C libraries is also annoying. Python doesn't seem like the best solution for what is required. If I would have to do it all again I would choose a different programming language for this project.
+
+If you face any issues or want to discuss some ideas - you can contact me directly via [e-mail](mailto:klaudijus.miniotas@gmail.com) or open up an issue through GitHub.
