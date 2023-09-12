@@ -23,7 +23,7 @@ To run ```wiifitboardbit```, the following is required:
 
 Start of with installing Python 2 and Bluez 5 if you don't have it:
 ```
-sudo apt-get install python2 bluez5
+sudo apt-get install python2 bluez
 ```
 
 ### XWiimote and XWiimote-Bindings
